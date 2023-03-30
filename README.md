@@ -87,7 +87,7 @@ bool SPI_Init(void)
 	// Define MCP2515 SPI device configuration
 	spi_device_interface_config_t dev_cfg = {
 		.mode = 0, // (0,0)
-		.clock_speed_hz = 10000000, // 160mhz
+		.clock_speed_hz = 10000000, // 10mhz
 		.spics_io_num = PIN_NUM_CS,
 		.queue_size = 128
 	};
