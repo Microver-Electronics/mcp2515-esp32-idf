@@ -10,6 +10,7 @@ CAN-BUS is a common industrial bus because of its long travel distance, medium c
 - Two receive buffers with prioritized message storage
 
 **Contents:**
+* [Component Setup](#component-setup)
 * [Hardware](#hardware)
    * [CAN Shield](#can-shield)
 * [Software Usage](#software-usage)
@@ -19,6 +20,15 @@ CAN-BUS is a common industrial bus because of its long travel distance, medium c
    * [Receive Data](#receive-data)
    * [Set Receive Mask and Filter](#set-receive-mask-and-filter)
    * [Examples](#examples)
+
+# Component Setup
+
+First of all, create a new component for your MCP2515 controller. Then import the "mcp2515.c" file into it, "mcp2515.h" and "can.h" files into /include folder of created component.
+Then you append "mcp2515.c" to the SRCS line of component's CMakeLists.txt file.
+After that you can include the mcp2515.h file from your components main source file and use the instructions below. 
+
+Feel free to discover and ask your questions.
+
 
 # Hardware:
 
