@@ -1,6 +1,6 @@
 # esp32/esp8266 MCP2515 CAN interface library
 
-it's a fork of [esp32/esp8266 MCP2515 CAN interface library](https://github.com/dedalqq/esp32-mcp2515)
+it's a fork of [MCP2515 Canbus library for ESP IDF](https://github.com/zeroomega/esp32-mcp2515)
 
 CAN-BUS is a common industrial bus because of its long travel distance, medium communication speed and high reliability. It is commonly found on modern machine tools and as an automotive diagnostic bus. This CAN-BUS Shield gives your esp32/esp8266 CAN-BUS capibility. With an OBD-II converter cable added on and the OBD-II library imported, you are ready to build an onboard diagnostic device or data logger.
 
@@ -38,14 +38,14 @@ Component References:
 ## Initialization
 
 The available modes are listed as follows:
-```C++
-mcp2515.setNormalMode();
-mcp2515.setLoopbackMode();
-mcp2515.setListenOnlyMode();
+```C
+MCP2515_setNormalMode();
+MCP2515_setLoopbackMode();
+MCP2515_setListenOnlyMode();
 ```
 
 The available baudrates are listed as follows:
-```C++
+```C
 enum CAN_SPEED {
     CAN_5KBPS,
     CAN_10KBPS,
@@ -69,22 +69,55 @@ enum CAN_SPEED {
 
 Example of initialization
 
-```C++
-MCP2515 mcp2515(&spi);
-mcp2515.reset();
-mcp2515.setBitrate(CAN_125KBPS);
-mcp2515.setLoopbackMode();
-```
+```C
+bool SPI_Init(void)
+{
+	printf("Hello from SPI_Init!\n\r");
+	esp_err_t ret;
+	//Configuration for the SPI bus
+	spi_bus_config_t bus_cfg={
+		.miso_io_num=PIN_NUM_MISO,
+		.mosi_io_num=PIN_NUM_MOSI,
+		.sclk_io_num=PIN_NUM_CLK,
+		.quadwp_io_num=-1,
+		.quadhd_io_num=-1,
+		.max_transfer_sz = 0 // no limit
+	};
 
-You can also set oscillator frequency for module when setting bitrate:
+	// Define MCP2515 SPI device configuration
+	spi_device_interface_config_t dev_cfg = {
+		.mode = 0, // (0,0)
+		.clock_speed_hz = 10000000, // 160mhz
+		.spics_io_num = PIN_NUM_CS,
+		.queue_size = 128
+	};
 
-```C++
-mcp2515.setBitrate(CAN_125KBPS, MCP_8MHZ);
+	// Initialize SPI bus
+	ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+	ESP_ERROR_CHECK(ret);
+
+    // Add MCP2515 SPI device to the bus
+    ret = spi_bus_add_device(SPI2_HOST, &dev_cfg, &MCP2515_Object->spi);
+    ESP_ERROR_CHECK(ret);
+
+    return true;
+}
+
+void CAN_Init(void)
+{
+	MCP2515_init();
+	SPI_Init();
+	MCP2515_reset();
+	MCP2515_setBitrate(CAN_1000KBPS, MCP_8MHZ);
+	MCP2515_setNormalMode();
+
+	xTaskCreatePinnedToCore(CAN_Module_RX_Task_Polling, "CAN_Module_RX_Task_Polling", 16384, NULL, 20, NULL, 1);
+}
 ```
 
 The available clock speeds are listed as follows:
 
-```C++
+```C
 enum CAN_CLOCK {
     MCP_20MHZ,
     MCP_16MHZ,
@@ -92,7 +125,7 @@ enum CAN_CLOCK {
 };
 ```
 
-Default value is MCP_16MHZ
+Default value is MCP_16MHZ, in my example it was 8MHZ.
 
 Note: To transfer data on high speed of CAN interface via UART dont forget to update UART baudrate as necessary.
 
@@ -100,51 +133,51 @@ Note: To transfer data on high speed of CAN interface via UART dont forget to up
 
 Library uses Linux-like structure to store can frames;
 
-```C++
-struct can_frame {
-    uint32_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
-    uint8_t  can_dlc;
-    uint8_t  data[8];
-};
+```C
+typedef struct can_frame {
+    canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+    __u8    can_dlc; /* frame payload length in byte (0 .. CAN_MAX_DLEN) */
+    __u8    data[CAN_MAX_DLEN] __attribute__((aligned(8)));
+} CAN_FRAME_t[1], *CAN_FRAME;
 ```
 
 For additional information see [SocketCAN](https://www.kernel.org/doc/Documentation/networking/can.txt)
 
 ## Send Data
 
-```C++
-MCP2515::ERROR sendMessage(const MCP2515::TXBn txbn, const struct can_frame *frame);
-MCP2515::ERROR sendMessage(const struct can_frame *frame);
+```C
+ERROR_t MCP2515_sendMessage(const TXBn_t txbn, const CAN_FRAME frame);
+ERROR_t MCP2515_sendMessageAfterCtrlCheck(const CAN_FRAME frame);
 ```
 
 This is a function to send data onto the bus.
 
 For example, In the 'send' example, we have:
 
-```C++
-struct can_frame frame;
-frame.can_id = 0x000;
-frame.can_dlc = 4;
-frame.data[0] = 0xFF;
-frame.data[1] = 0xFF;
-frame.data[2] = 0xFF;
-frame.data[3] = 0xFF;
+```C
+CAN_FRAME frame;
+frame->can_id = 0x000;
+frame->can_dlc = 4;
+frame->data[0] = 0xFF;
+frame->data[1] = 0xFF;
+frame->data[2] = 0xFF;
+frame->data[3] = 0xFF;
 
 /* send out the message to the bus and
 tell other devices this is a standard frame from 0x00. */
-mcp2515.sendMessage(&frame);
+MCP2515_sendMessage(&frame);
 ```
 
-```C++
-struct can_frame frame;
-frame.can_id = 0x12345678 | CAN_EFF_FLAG;
-frame.can_dlc = 2;
-frame.data[0] = 0xFF;
-frame.data[1] = 0xFF;
+```C
+CAN_FRAME frame;
+frame->can_id = 0x12345678 | CAN_EFF_FLAG;
+frame->can_dlc = 2;
+frame->data[0] = 0xFF;
+frame->data[1] = 0xFF;
 
 /* send out the message to the bus using second TX buffer and
 tell other devices this is a extended frame from 0x12345678. */
-mcp2515.sendMessage(MCP2515::TXB1, &frame);
+MCP2515_sendMessage(MCP2515::TXB1, &frame);
 ```
 
 
@@ -154,8 +187,8 @@ mcp2515.sendMessage(MCP2515::TXB1, &frame);
 The following function is used to receive data on the 'receive' node:
 
 ```C++
-MCP2515::ERROR readMessage(const MCP2515::RXBn rxbn, struct can_frame *frame);
-MCP2515::ERROR readMessage(struct can_frame *frame);
+ERROR_t MCP2515_readMessage(const RXBn_t rxbn, const CAN_FRAME frame);
+ERROR_t MCP2515_readMessageAfterStatCheck(const CAN_FRAME frame);
 ```
 
 In conditions that masks and filters have been set. This function can only get frames that meet the requirements of masks and filters.
@@ -164,11 +197,11 @@ You can choise one of two method to receive: interrupt-based and polling
 
 Example of poll read
 
-```C++
-struct can_frame frame;
+```C
+CAN_FRAME frame;
 
 void loop() {
-    if (mcp2515.readMessage(&frame) == MCP2515::ERROR_OK) {
+    if (MCP2515_readMessage(&frame) == ERROR_OK) {
         // frame contains received message
     }
 }
@@ -176,9 +209,9 @@ void loop() {
 
 Example of interrupt based read
 
-```C++
+```C
 bool interrupt = false;
-struct can_frame frame;
+CAN_FRAME frame;
 
 void irqHandler() {
     interrupt = true;
@@ -193,16 +226,16 @@ void loop() {
     if (interrupt) {
         interrupt = false;
 
-        uint8_t irq = mcp2515.getInterrupts();
+        uint8_t irq = MCP2515_getInterrupts();
 
-        if (irq & MCP2515::CANINTF_RX0IF) {
-            if (mcp2515.readMessage(MCP2515::RXB0, &frame) == MCP2515::ERROR_OK) {
+        if (irq & CANINTF_RX0IF) {
+            if (MCP2515_readMessage(RXB0, &frame) == ERROR_OK) {
                 // frame contains received from RXB0 message
             }
         }
 
-        if (irq & MCP2515::CANINTF_RX1IF) {
-            if (mcp2515.readMessage(MCP2515::RXB1, &frame) == MCP2515::ERROR_OK) {
+        if (irq & CANINTF_RX1IF) {
+            if (MCP2515_readMessage(RXB1, &frame) == ERROR_OK) {
                 // frame contains received from RXB1 message
             }
         }
@@ -217,9 +250,9 @@ There are 2 receive mask registers and 5 filter registers on the controller chip
 
 We provide two functions for you to utilize these mask and filter registers. They are:
 
-```C++
-MCP2515::ERROR setFilterMask(const MASK mask, const bool ext, const uint32_t ulData)
-MCP2515::ERROR setFilter(const RXF num, const bool ext, const uint32_t ulData)
+```C
+ERROR_t MCP2515_setFilterMask(const MASK_t num, const bool ext, const uint32_t ulData);
+ERROR_t MCP2515_setFilter(const RXF_t num, const bool ext, const uint32_t ulData);
 ```
 
 **MASK mask** represents one of two mask **MCP2515::MASK0** or **MCP2515::MASK1**
@@ -231,10 +264,6 @@ MCP2515::ERROR setFilter(const RXF num, const bool ext, const uint32_t ulData)
 **ulData** represents the content of the mask of filter.
 
 
-## Examples
-
-Example implementation of CanHacker (lawicel) protocol based device: [https://github.com/autowp/can-usb](https://github.com/autowp/can-usb)
-
 
 For more information, please refer to [wiki page](http://www.seeedstudio.com/wiki/CAN-BUS_Shield) .
 
@@ -243,6 +272,7 @@ For more information, please refer to [wiki page](http://www.seeedstudio.com/wik
 This software is written by loovee ([luweicong@seeed.cc](luweicong@seeed.cc "luweicong@seeed.cc")) for seeed studio
 Updated by Dmitry ([https://github.com/autowp](https://github.com/autowp "https://github.com/autowp"))
 Adapted for use on esp32/esp8266 by dedal.qq ([https://github.com/dedalqq](https://github.com/dedalqq "https://github.com/dedalqq"))
+Adapted for use on ESP32 & ESP-IDF by dogualpay ([https://github.com/dogualpay](https://github.com/dogualpay "https://github.com/dogualpay"))
 and is licensed under [The MIT License](http://opensource.org/licenses/mit-license.php). Check [LICENSE.md](LICENSE.md) for more information.
 
 Contributing to this software is warmly welcomed. You can do this basically by
