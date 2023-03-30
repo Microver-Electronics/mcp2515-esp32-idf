@@ -96,11 +96,11 @@ bool SPI_Init(void)
 	ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
 	ESP_ERROR_CHECK(ret);
 
-    // Add MCP2515 SPI device to the bus
-    ret = spi_bus_add_device(SPI2_HOST, &dev_cfg, &MCP2515_Object->spi);
-    ESP_ERROR_CHECK(ret);
+	// Add MCP2515 SPI device to the bus
+	ret = spi_bus_add_device(SPI2_HOST, &dev_cfg, &MCP2515_Object->spi);
+	ESP_ERROR_CHECK(ret);
 
-    return true;
+	return true;
 }
 
 void CAN_Init(void)
