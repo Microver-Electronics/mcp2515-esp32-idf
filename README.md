@@ -281,7 +281,8 @@ For more information, please refer to [wiki page](http://www.seeedstudio.com/wik
 
 TO-DO:
 
-Ken Tindell from Linkedin
+-Ken Tindell from Linkedin
+
 The DLC handling is wrong. On receive, frames with a DLC > 8 will be discarded by the drivers even though they are valid frames. It will also read in (garbage) payload data for remote frames where DLC > 0. On the transmit site, it refuses to transmit frames with DLC > 8.
 
 The drivers also suffer from priority inversion: a low priority frame can delay a high priority urgent frame for an arbitrarily long time. For more on this, see: https://kentindell.github.io/2020/06/29/can-priority-inversion/
@@ -289,7 +290,8 @@ The drivers also suffer from priority inversion: a low priority frame can delay 
 To fix the priority inversion problem you need to create a priority-ordered queue in CPU memory, and put the head of the queue into the controller. When the frame is sent, an interrupt should be raised, and in the handler you need to copy out the next frame into the transmit buffer. When a new frame is queued then the driver needs to check to see if it is higher priority than the frame in the controller and if it is then issue an abort request. There is a race between the abort being successful and the frame being transmitted, and the transmit interrupt handler needs to resolve this with the status registers in the controller.
 ________________
 
-Ken Tindell from Linkedin
+-Ken Tindell from Linkedin
+
 Also I think you've hardwired the sample point to 50%. This is a bad idea: the sample point is a bus-wide property and usually set late within a bit (e.g. CANOpen uses 87.5%) for reasons to do with the physical layer settling. Forcing the sample point to 50% creates a vulnerability to the Janus Attack: https://kentindell.github.io/2021/07/15/janus-attack/
 ________________
 
