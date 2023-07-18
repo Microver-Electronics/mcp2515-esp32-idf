@@ -175,7 +175,9 @@ frame->data[3] = 0xFF;
 
 /* send out the message to the bus and
 tell other devices this is a standard frame from 0x00. */
-MCP2515_sendMessage(&frame);
+MCP2515_sendMessage(MCP2515_Object.TXBn, &frame);
+// or you can directly use the other sendMessage version as a simpler version
+MCP2515_sendMessageAfterCtrlCheck(&frame);
 ```
 
 ```C
@@ -187,7 +189,9 @@ frame->data[1] = 0xFF;
 
 /* send out the message to the bus using second TX buffer and
 tell other devices this is a extended frame from 0x12345678. */
-MCP2515_sendMessage(MCP2515::TXB1, &frame);
+MCP2515_sendMessage(MCP2515_Object.TXBn, &frame);
+// or you can directly use the other sendMessage version as a simpler version
+MCP2515_sendMessageAfterCtrlCheck(&frame);
 ```
 
 
